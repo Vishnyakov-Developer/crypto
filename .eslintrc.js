@@ -18,6 +18,8 @@ module.exports = {
       named: 'never',
       asyncArrow: 'always'
     }],
-    eqeqeq: 'off'
+    eqeqeq: 'off',
+    semi: 0,
+    'array-callback-return': 'off'
   }
 }
