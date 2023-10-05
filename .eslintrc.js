@@ -17,6 +17,7 @@ module.exports = {
       anonymous: 'always',
       named: 'never',
       asyncArrow: 'always'
-    }]
+    }],
+    eqeqeq: 'off'
   }
 }
