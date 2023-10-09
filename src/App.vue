@@ -7,7 +7,7 @@
           <div class="max-w-xs">
             <label for="wallet" class="block text-sm font-medium text-gray-700">Тикер</label>
             <div class="mt-1 relative rounded-md shadow-md">
-              <input @keydown.enter="add" @input="showErrorMessage = false" v-model="ticker" type="text" name="wallet" id="wallet"
+              <input @keydown.enter="add()" @input="showErrorMessage = false" v-model="ticker" type="text" name="wallet" id="wallet"
                 class="block w-full pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
                 placeholder="Например DOGE" />
             </div>
@@ -26,7 +26,7 @@
             <div class="text-sm text-red-600" v-if="showErrorMessage == true">Такой тикер уже добавлен</div>
           </div>
         </div>
-        <button type="button" v-on:click="add"
+        <button type="button" v-on:click="add()"
           class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
           <!-- Heroicon name: solid/mail -->
           <svg class="-ml-0.5 mr-2 h-6 w-6" xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24"
@@ -117,18 +117,20 @@ export default {
   },
   methods: {
     add(tname = '') {
-      if (tname != '') {
+      if (tname) {
         this.ticker = tname;
       }
 
       const currentTicker = { name: this.ticker, price: '-' };
       for (let i = 0; i < this.tickers.length; i++) {
-        if (this.tickers[i].name.toLowerCase() == this.ticker.toLowerCase()) {
+        if (this.tickers[i].name?.toLowerCase() == this.ticker?.toLowerCase()) {
           this.showErrorMessage = true;
           return true;
         }
       }
       this.tickers.push(currentTicker);
+
+      localStorage.setItem('crypto-list', JSON.stringify(this.tickers));
 
       setInterval(async () => {
         const f = await fetch(
@@ -149,7 +151,7 @@ export default {
     },
     getCoinsByName(name) {
       return this.coinList.reduce((prev, value, index) => {
-        if (value.toLowerCase().includes(name.toLowerCase()) && prev.length < 15) {
+        if (value.toLowerCase().includes(name?.toLowerCase()) && prev.length < 15) {
           prev.push(value);
         }
         return prev;
@@ -185,6 +187,12 @@ export default {
     for (const coin in coinsData.Data) {
       this.coinList.push(coinsData.Data[coin].Symbol);
       this.coinList.push(coinsData.Data[coin].FullName);
+    }
+
+    const tickersData = localStorage.getItem('crypto-list');
+
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData);
     }
   }
 
