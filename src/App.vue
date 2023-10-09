@@ -7,29 +7,23 @@
           <div class="max-w-xs">
             <label for="wallet" class="block text-sm font-medium text-gray-700">Тикер</label>
             <div class="mt-1 relative rounded-md shadow-md">
-              <input @keydown.enter="add" v-model="ticker" type="text" name="wallet" id="wallet"
+              <input @keydown.enter="add" @input="showErrorMessage = false" v-model="ticker" type="text" name="wallet" id="wallet"
                 class="block w-full pr-10 border-gray-300 text-gray-900 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
                 placeholder="Например DOGE" />
             </div>
-            <div class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
+            <div
+            class="flex bg-white shadow-md p-1 rounded-md flex-wrap"
+            v-if="getCoinsByName(ticker).length > 0 && ticker.length > 0"
+            >
               <span
+              v-for="coin in getCoinsByName(ticker)"
+              :key="coin"
+              @click="add(coin)"
                 class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-                BTC
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-                DOGE
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-                BCH
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-                CHD
+                {{ coin }}
               </span>
             </div>
-            <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
+            <div class="text-sm text-red-600" v-if="showErrorMessage == true">Такой тикер уже добавлен</div>
           </div>
         </div>
         <button type="button" v-on:click="add"
@@ -116,12 +110,24 @@ export default {
       tickers: [],
       sel: null,
       graph: [],
-      test: 123
+      test: 123,
+      showErrorMessage: false,
+      coinList: []
     }
   },
   methods: {
-    add() {
+    add(tname = '') {
+      if (tname != '') {
+        this.ticker = tname;
+      }
+
       const currentTicker = { name: this.ticker, price: '-' };
+      for (let i = 0; i < this.tickers.length; i++) {
+        if (this.tickers[i].name.toLowerCase() == this.ticker.toLowerCase()) {
+          this.showErrorMessage = true;
+          return true;
+        }
+      }
       this.tickers.push(currentTicker);
 
       setInterval(async () => {
@@ -132,12 +138,22 @@ export default {
         const data = await f.json();
         currentTicker.price = data.USD;
         this.tickers.find(t => t.name == currentTicker.name).price =
-        data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
+        data.USD > 1 ? data?.USD?.toFixed(2) : data?.USD?.toPrecision(2);
         if (this.sel?.name == currentTicker.name) {
           this.graph.push(data.USD);
         }
       }, 3000)
+
+      this.showErrorMessage = false;
+      this.ticker = '';
+    },
+    getCoinsByName(name) {
+      return this.coinList.reduce((prev, value, index) => {
+        if (value.toLowerCase().includes(name.toLowerCase()) && prev.length < 15) {
+          prev.push(value);
+        }
+        return prev;
+      }, []);
     },
     handleDelete(tickerToRemove) {
       this.tickers = this.tickers.filter(t => t != tickerToRemove);
@@ -161,6 +177,15 @@ export default {
 
   },
   components: {
+  },
+  async created() {
+    const coins = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true');
+    const coinsData = await coins.json();
+    console.log(coinsData);
+    for (const coin in coinsData.Data) {
+      this.coinList.push(coinsData.Data[coin].Symbol);
+      this.coinList.push(coinsData.Data[coin].FullName);
+    }
   }
 
 }
