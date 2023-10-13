@@ -40,15 +40,22 @@
       </section>
       <template v-if="tickers.length">
         <div>
+          <button
+          v-if="page > 1"
+          @click="page = page - 1"
+          class="mx-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Назад</button>
+          <button
+          v-if="hasNextPage"
+          @click="page = page + 1"
+          class="mx-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Вперед</button>
           Фильтр:
-          <input type="text">
-          <button class="mx-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Назад</button>
-          <button class="mx-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Вперед</button>
+          <input type="text"
+          v-model="filter">
         </div>
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-          v-for="(t, idx) in tickers"
+          v-for="(t, idx) in filteredList()"
           :key="idx"
           @click="select(t)"
           :class="{
@@ -118,10 +125,31 @@ export default {
       graph: [],
       test: 123,
       showErrorMessage: false,
-      coinList: []
+      coinList: [],
+      page: 1,
+      filter: '',
+      hasNextPage: true
+    }
+  },
+  watch: {
+    filter() {
+      this.page = 1;
+      const { pathname } = window.location;
+      window.history.pushState(null, document.title, `${pathname}?filter=${this.filter}&page=${this.page}`);
+    },
+    page() {
+      const { pathname } = window.location;
+      window.history.pushState(null, document.title, `${pathname}?filter=${this.filter}&page=${this.page}`);
     }
   },
   methods: {
+    filteredList() {
+      const start = (this.page - 1) * 6;
+      const end = this.page * 6;
+      const tickersList = this.tickers.filter(ticker => ticker.name.includes(this.filter));
+      this.hasNextPage = tickersList.length > end;
+      return tickersList.slice(start, end);
+    },
     add(tname = '') {
       if (tname) {
         this.ticker = tname;
@@ -134,7 +162,9 @@ export default {
           return true;
         }
       }
+
       this.tickers.push(currentTicker);
+      this.filter = '';
 
       localStorage.setItem('crypto-list', JSON.stringify(this.tickers));
 
@@ -191,6 +221,15 @@ export default {
   components: {
   },
   async created() {
+    const windowData = Object.fromEntries(new URL(window.location).searchParams.entries());
+    if (windowData.filter) {
+      this.filter = windowData.filter;
+    }
+
+    if (windowData.page) {
+      this.page = parseInt(windowData.page);
+    }
+
     const coins = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true');
     const coinsData = await coins.json();
     console.log(coinsData);
