@@ -39,6 +39,12 @@
         </button>
       </section>
       <template v-if="tickers.length">
+        <div>
+          Фильтр:
+          <input type="text">
+          <button class="mx-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Назад</button>
+          <button class="mx-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Вперед</button>
+        </div>
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
@@ -132,22 +138,26 @@ export default {
 
       localStorage.setItem('crypto-list', JSON.stringify(this.tickers));
 
-      setInterval(async () => {
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=b0b0f58e70c81727376cb8212bbad0e63041c782026088ddcbbeddf660c1d2c2`
-        );
-
-        const data = await f.json();
-        currentTicker.price = data.USD;
-        this.tickers.find(t => t.name == currentTicker.name).price =
-        data.USD > 1 ? data?.USD?.toFixed(2) : data?.USD?.toPrecision(2);
-        if (this.sel?.name == currentTicker.name) {
-          this.graph.push(data.USD);
-        }
-      }, 3000)
+      this.subToUpd(this.ticker);
 
       this.showErrorMessage = false;
       this.ticker = '';
+    },
+    subToUpd(tickerName) {
+      setInterval(async () => {
+        const f = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=b0b0f58e70c81727376cb8212bbad0e63041c782026088ddcbbeddf660c1d2c2`
+        );
+
+        const tickerObject = this.tickers.find(t => t.name == tickerName);
+        const data = await f.json();
+        tickerObject.price = data.USD;
+        this.tickers.find(t => t.name == tickerName).price =
+        data.USD > 1 ? data?.USD?.toFixed(2) : data?.USD?.toPrecision(2);
+        if (this.sel?.name == tickerName) {
+          this.graph.push(data.USD);
+        }
+      }, 3000)
     },
     getCoinsByName(name) {
       return this.coinList.reduce((prev, value, index) => {
@@ -193,6 +203,9 @@ export default {
 
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach(tick => {
+        this.subToUpd(tick.name);
+      })
     }
   }
 
