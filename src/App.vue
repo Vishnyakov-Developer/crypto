@@ -55,11 +55,11 @@
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-          v-for="(t, idx) in filteredList()"
+          v-for="(t, idx) in paginatedTickers"
           :key="idx"
           @click="select(t)"
           :class="{
-            'border-4': sel == t,
+            'border-4': selectedTicker == t,
           }"
           class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
           >
@@ -83,20 +83,20 @@
           </div>
         </dl>
         <hr class="w-full border-t border-gray-600 my-4" />
-        <section class="relative" v-if="sel">
+        <section class="relative" v-if="selectedTicker">
           <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
-            {{ sel.name }} - USD
+            {{ selectedTicker.name }} - USD
           </h3>
           <div class="flex items-end border-gray-600 border-b border-l h-64">
             <div
-            v-for="(bar,idx) in normalizeGraph()"
+            v-for="(bar,idx) in normalizedGraph"
             :key="idx"
             :style="{
               height: `${bar}%`
             }"
             class="bg-purple-800 border w-10"></div>
           </div>
-          <button @click="sel = null" type="button" class="absolute top-0 right-0">
+          <button @click="selectedTicker = null" type="button" class="absolute top-0 right-0">
             <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
               xmlns:svgjs="http://svgjs.com/svgjs" version="1.1" width="30" height="30" x="0" y="0"
               viewBox="0 0 511.76 511.76" style="enable-background:new 0 0 512 512" xml:space="preserve">
@@ -120,36 +120,40 @@ export default {
   data() {
     return {
       ticker: '',
+      filter: '',
+
       tickers: [],
-      sel: null,
+      selectedTicker: null,
+
       graph: [],
-      test: 123,
+
       showErrorMessage: false,
       coinList: [],
-      page: 1,
-      filter: '',
-      hasNextPage: true
+
+      page: 1
     }
   },
   watch: {
+    paginatedTickers() {
+      if (this.paginatedTickers.length == 0 && this.page > 0) {
+        this.page -= 1;
+      }
+    },
+    tickers() {
+      localStorage.setItem('crypto-list', JSON.stringify(this.tickers));
+    },
+    selectedTicker() {
+      this.graph = [];
+    },
     filter() {
       this.page = 1;
-      const { pathname } = window.location;
-      window.history.pushState(null, document.title, `${pathname}?filter=${this.filter}&page=${this.page}`);
     },
-    page() {
+    pageStateOptions() {
       const { pathname } = window.location;
       window.history.pushState(null, document.title, `${pathname}?filter=${this.filter}&page=${this.page}`);
     }
   },
   methods: {
-    filteredList() {
-      const start = (this.page - 1) * 6;
-      const end = this.page * 6;
-      const tickersList = this.tickers.filter(ticker => ticker.name.includes(this.filter));
-      this.hasNextPage = tickersList.length > end;
-      return tickersList.slice(start, end);
-    },
     add(tname = '') {
       if (tname) {
         this.ticker = tname;
@@ -163,10 +167,8 @@ export default {
         }
       }
 
-      this.tickers.push(currentTicker);
+      this.tickers = [...this.tickers, currentTicker];
       this.filter = '';
-
-      localStorage.setItem('crypto-list', JSON.stringify(this.tickers));
 
       this.subToUpd(this.ticker);
 
@@ -179,12 +181,14 @@ export default {
           `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=b0b0f58e70c81727376cb8212bbad0e63041c782026088ddcbbeddf660c1d2c2`
         );
 
+        if (!this.tickers.length) return true;
+
         const tickerObject = this.tickers.find(t => t.name == tickerName);
         const data = await f.json();
         tickerObject.price = data.USD;
         this.tickers.find(t => t.name == tickerName).price =
         data.USD > 1 ? data?.USD?.toFixed(2) : data?.USD?.toPrecision(2);
-        if (this.sel?.name == tickerName) {
+        if (this.selectedTicker?.name == tickerName) {
           this.graph.push(data.USD);
         }
       }, 3000)
@@ -199,17 +203,12 @@ export default {
     },
     handleDelete(tickerToRemove) {
       this.tickers = this.tickers.filter(t => t != tickerToRemove);
-    },
-    normalizeGraph() {
-      const maxValue = Math.max(...this.graph);
-      const minValue = Math.min(...this.graph);
-      return this.graph.map(
-        price => 5 + ((price - minValue) * 100) / (maxValue - minValue)
-      );
+      if (this.selectedTicker == tickerToRemove) {
+        this.selectedTicker = null;
+      }
     },
     select(ticker) {
-      this.sel = ticker;
-      this.graph = [];
+      this.selectedTicker = ticker;
     },
     testActivate() {
       setInterval(() => {
@@ -217,6 +216,41 @@ export default {
       }, 1000);
     }
 
+  },
+  computed: {
+    pageStateOptions() {
+      return {
+        filter: this.filter,
+        page: this.page
+      }
+    },
+    filteredList() {
+      return this.tickers.filter(ticker => ticker.name.includes(this.filter));
+    },
+    hasNextPage() {
+      return this.filteredList.length > this.endIndex;
+    },
+    endIndex() {
+      return this.page * 6;
+    },
+    startIndex() {
+      return (this.page - 1) * 6;
+    },
+    normalizedGraph() {
+      const maxValue = Math.max(...this.graph);
+      const minValue = Math.min(...this.graph);
+
+      if (maxValue == minValue) {
+        this.graph.map(() => 50);
+      }
+
+      return this.graph.map(
+        price => 5 + ((price - minValue) * 100) / (maxValue - minValue)
+      );
+    },
+    paginatedTickers() {
+      return this.filteredList.slice(this.startIndex, this.endIndex);
+    }
   },
   components: {
   },
